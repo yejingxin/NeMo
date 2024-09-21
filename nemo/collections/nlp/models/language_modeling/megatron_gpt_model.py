@@ -1746,14 +1746,16 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             if self.cfg.data.get('pad_samples_to_global_batch_size', False):
                 logging.info('pad_samples_to_global_batch_size set to True')
                 pad_samples_to_global_batch_size = True
-
-            self._validation_dl = self.build_pretraining_data_loader(
+            if len(self._validation_ds) > 0:
+                self._validation_dl = self.build_pretraining_data_loader(
                 self._validation_ds, consumed_samples, "validation", drop_last, pad_samples_to_global_batch_size
             )
+            else:
+                self._validation_dl = None
 
     def setup_test_data(self, cfg):
         if hasattr(self, '_test_ds'):
-            if self._test_ds is not None:
+            if self._test_ds is not None and len(self._test_ds) > 0:
                 consumed_samples = 0
                 logging.info(
                     f'Setting up test dataloader with len(len(self._test_ds)): {len(self._test_ds)} and consumed samples: {consumed_samples}'

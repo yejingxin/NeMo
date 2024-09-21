@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import sys
+import torch
+import os
 from typing import Optional, Union
 
 from lightning_fabric.utilities.exceptions import MisconfigurationException
@@ -20,6 +22,8 @@ from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelSummary
 from pytorch_lightning.plugins.environments import TorchElasticEnvironment
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.profilers.pytorch import PyTorchProfiler
 
 from nemo.collections.common.metrics.perf_metrics import FLOPsMeasurementCallback
 from nemo.collections.nlp.parts.nlp_overrides import (
@@ -180,13 +184,62 @@ class MegatronTrainerBuilder:
 
         return callbacks
 
+    def create_pytroch_profiler(self) -> PyTorchProfiler:
+        if self.cfg.model.get('pytorch_profile', None) is None:
+            return None
+        if not self.cfg.model.pytorch_profile.get('enabled', False):
+            return None
+        _pytorch_profile_start_step = self.cfg.model.pytorch_profile.get('start_step', 0)
+        _pytorch_profile_end_step = self.cfg.model.pytorch_profile.get('end_step', 0)
+        _pytorch_profile_output_path = self.cfg.model.pytorch_profile.get('output_path', None)
+                
+
+        if type(_pytorch_profile_start_step) == int:
+            logging.info(f'Nsys profiling setup with start_step: {_pytorch_profile_start_step}')
+        else:
+            raise ValueError(
+                f'CUDA memory start_step must be of type int. Found: {type(_pytorch_profile_start_step)}'
+            )
+
+        if type(_pytorch_profile_end_step) == int:
+            logging.info(f'CUDA memory profiling setup with end_step: {_pytorch_profile_end_step}')
+        else:
+            raise ValueError(
+                f'CUDA memory end_step must be of type int. Found: {type(_pytorch_profile_end_step)}'
+            )
+
+        if _pytorch_profile_end_step >= _pytorch_profile_start_step:
+            pass
+        else:
+            raise ValueError(f'CUDA memory end_step must be greater than or equal to memory start_step')
+
+        #if _pytorch_profile_output_path is None or not os.path.isdir(_pytorch_profile_output_path):
+        #    raise ValueError(
+        #        f'Memory profile output path ({_pytorch_profile_output_path}) is not set or does not exist.'
+        #    )
+        return PyTorchProfiler(
+                            activities=[
+                                torch.profiler.ProfilerActivity.CPU,
+                                torch.profiler.ProfilerActivity.CUDA,
+                                ],
+                            schedule=torch.profiler.schedule(
+                                wait=max(_pytorch_profile_start_step-1, 0),
+                                warmup=1 if _pytorch_profile_start_step > 0 else 0,
+                                active=_pytorch_profile_end_step - _pytorch_profile_start_step + 1,
+                                repeat=1),
+                            #on_trace_ready=torch.profiler.tensorboard_trace_handler(_pytorch_profile_output_path),
+                            record_shapes=True,
+                            profile_memory=True,
+                            with_stack=True
+                        )
+
     def create_trainer(self, callbacks=None) -> Trainer:
         # cfg.trainer.precision becomes None in Trainer if precision_plugins exist since both precision plugins and precision
         precision = self.cfg.trainer.precision
         strategy = self._training_strategy()
         plugins = self._plugins()
         callbacks = self._callbacks(callbacks)
-        trainer = Trainer(plugins=plugins, strategy=strategy, **self.cfg.trainer, callbacks=callbacks)
+        trainer = Trainer(plugins=plugins, strategy=strategy, profiler = self.create_pytroch_profiler(), **self.cfg.trainer, callbacks=callbacks)
         # Restore the precision value after Trainer is built.
         self.cfg.trainer.precision = precision
         return trainer

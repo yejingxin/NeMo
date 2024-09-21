@@ -64,6 +64,7 @@ def main(cfg) -> None:
         model = MegatronGPTModel(cfg.model, trainer)
 
     trainer.fit(model)
+    logging.info(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
 if __name__ == '__main__':
