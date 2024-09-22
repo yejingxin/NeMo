@@ -708,6 +708,7 @@ class NLPFSDPStrategy(FSDPStrategy):
         sharp: bool = False,
         set_buffer_dtype: Optional[str] = None,
         extra_fsdp_wrap_module: Optional[set] = None,
+        fsdp_size: int = None,
         **kwargs: Union[Any, Dict[str, Any]],
     ) -> None:
         if not HAVE_APEX:
@@ -753,7 +754,7 @@ class NLPFSDPStrategy(FSDPStrategy):
             'grad': ShardingStrategy.SHARD_GRAD_OP,
         }
         assert sharding_strategy in list(fsdp_sharding_strategy.keys()), "Not a supported sharding strategy."
-        assert sharding_strategy != 'hybrid', "Hybrid sharding is currrently not supported."
+        #assert sharding_strategy != 'hybrid', "Hybrid sharding is currrently not supported."
         kwargs['sharding_strategy'] = fsdp_sharding_strategy[sharding_strategy]
 
         # Set FSDP state dict configs
@@ -765,6 +766,7 @@ class NLPFSDPStrategy(FSDPStrategy):
         self.nccl_communicator_config_path = nccl_communicator_config_path
         self.sharp = sharp
         self.sharding_strategy = sharding_strategy
+        self.fsdp_size = fsdp_size
         super().__init__(**kwargs)
 
     def _set_mixed_precision_recipe(
@@ -814,6 +816,23 @@ class NLPFSDPStrategy(FSDPStrategy):
             init_model_parallel(self.sharp, self.nccl_communicator_config_path)
         # Set the FSDP process group as DP(+CP) process group
         self.kwargs["process_group"] = parallel_state.get_data_parallel_group(with_context_parallel=True)
+        global_rank = self.cluster_environment.global_rank()
+        world_size = self.cluster_environment.world_size()
+        if self.fsdp_size is not None or self.fsdp_size < world_size:
+            assert world_size % self.fsdp_size == 0
+            #from torch.distributed.fsdp.fully_sharded_data_parallel import ShardingStrategy
+            #self.sharding_strategy = ShardingStrategy.HYBRID_SHARD
+            fsdp_groups = [[j for j in range(i, i + self.fsdp_size)] for i in range(0, world_size, self.fsdp_size)]
+            for fsdp_group in fsdp_groups:
+                fsdp_group_handle = torch.distributed.new_group(fsdp_group)
+                if global_rank in fsdp_group:
+                    my_fsdp_group = fsdp_group_handle
+            ddp_groups = [[j for j in range(i, world_size, self.fsdp_size)] for i in range(self.fsdp_size)]
+            for ddp_group in ddp_groups:
+                ddp_group_handle = torch.distributed.new_group(ddp_group)
+                if global_rank in ddp_group:
+                    my_ddp_group = ddp_group_handle
+            self.kwargs["process_group"] = (my_fsdp_group, my_ddp_group)
 
         # Set the params to omit from sharding.
         self.kwargs["ignored_states"] = []
