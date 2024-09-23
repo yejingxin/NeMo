@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+import os
 import numpy as np
 from pytorch_lightning.callbacks import Callback
 
@@ -48,7 +49,20 @@ class FLOPsMeasurementCallback(Callback):
 
         # use config params only when NOT provided explicitly
         self.model = self.run_cfg.get('name', "") if model_name is None else model_name
-        self.log_dir = self.exp_cfg.get('explicit_log_dir', None) if log_dir is None else log_dir
+        logging.info(f"{log_dir=} {self.exp_cfg.get('exp_dir', None)=} {self.exp_cfg.get('name', None)=} {self.exp_cfg.get('version', None)=}")
+        if log_dir is not None:
+            self.log_dir = log_dir
+        elif self.exp_cfg.get('exp_dir', None) is not None:
+            self.log_dir = self.exp_cfg.get('exp_dir', None)
+            if self.exp_cfg.get('name', None) is not None:
+                self.log_dir = os.path.join(self.log_dir, self.exp_cfg.get('name', None))
+            if self.exp_cfg.get('version', None) is not None:
+                self.log_dir = os.path.join(self.log_dir, self.exp_cfg.get('version', None))
+        elif self.exp_cfg.get('explicit_log_dir', None) is not None:
+            self.log_dir = self.exp_cfg.get('explicit_log_dir', None)
+        else:
+            self.log_dir = None
+
 
         self.num_nodes = self.train_cfg.get('num_nodes', None)
         self.num_gpus_per_node = self.train_cfg.get('devices', None)
@@ -103,6 +117,7 @@ class FLOPsMeasurementCallback(Callback):
         # efficient mean computation if num train steps is very large
         step_time_arr = np.array(train_step_time)
         train_step_time = np.mean(step_time_arr[len(step_time_arr) // 2 :])
+        logging.info(f"Last {len(step_time_arr) // 2} step: avg {train_step_time=} s")
 
         return flops_per_gpu / (1e12 * train_step_time)
 

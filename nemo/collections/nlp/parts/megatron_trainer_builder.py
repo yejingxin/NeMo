@@ -218,6 +218,9 @@ class MegatronTrainerBuilder:
         #    raise ValueError(
         #        f'Memory profile output path ({_pytorch_profile_output_path}) is not set or does not exist.'
         #    )
+        kwargs = {}
+        if _pytorch_profile_output_path is not None:
+            kwargs['on_trace_ready'] = torch.profiler.tensorboard_trace_handler(_pytorch_profile_output_path)
         return PyTorchProfiler(
                             activities=[
                                 torch.profiler.ProfilerActivity.CPU,
@@ -228,10 +231,10 @@ class MegatronTrainerBuilder:
                                 warmup=1 if _pytorch_profile_start_step > 0 else 0,
                                 active=_pytorch_profile_end_step - _pytorch_profile_start_step + 1,
                                 repeat=1),
-                            #on_trace_ready=torch.profiler.tensorboard_trace_handler(_pytorch_profile_output_path),
                             record_shapes=True,
                             profile_memory=True,
-                            with_stack=True
+                            with_stack=True,
+                            **kwargs,
                         )
 
     def create_trainer(self, callbacks=None) -> Trainer:

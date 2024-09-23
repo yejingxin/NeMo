@@ -27,8 +27,10 @@ def read_tb_log(path: str, summary_name: str) -> List:
         summary_list: list, the values in the read summary list, formatted as a list.
     """
     from tensorboard.backend.event_processing import event_accumulator
+    logging.info(f"reading tensorboard files from {path}")
 
     files = glob.glob(f"{path}/events*tfevents*")
+    files.extend(glob.glob(f"{path}/*/events*tfevents*"))
     files.sort(key=lambda x: os.path.getmtime(os.path.join(path, x)))
     if len(files) == 0 or not os.path.isfile(files[0]):
         raise FileNotFoundError(f"Missing TensorBoard log file.")

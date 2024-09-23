@@ -818,10 +818,10 @@ class NLPFSDPStrategy(FSDPStrategy):
         self.kwargs["process_group"] = parallel_state.get_data_parallel_group(with_context_parallel=True)
         global_rank = self.cluster_environment.global_rank()
         world_size = self.cluster_environment.world_size()
-        if self.fsdp_size is not None or self.fsdp_size < world_size:
+        if self.fsdp_size is not None:
+            assert self.fsdp_size < world_size
             assert world_size % self.fsdp_size == 0
-            #from torch.distributed.fsdp.fully_sharded_data_parallel import ShardingStrategy
-            #self.sharding_strategy = ShardingStrategy.HYBRID_SHARD
+            assert self.sharding_strategy == ShardingStrategy.HYBRID_SHARD
             fsdp_groups = [[j for j in range(i, i + self.fsdp_size)] for i in range(0, world_size, self.fsdp_size)]
             for fsdp_group in fsdp_groups:
                 fsdp_group_handle = torch.distributed.new_group(fsdp_group)
