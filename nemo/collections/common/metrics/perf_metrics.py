@@ -117,7 +117,7 @@ class FLOPsMeasurementCallback(Callback):
         # efficient mean computation if num train steps is very large
         step_time_arr = np.array(train_step_time)
         train_step_time = np.mean(step_time_arr[len(step_time_arr) // 2 :])
-        logging.info(f"Last {len(step_time_arr) // 2} step: avg {train_step_time=} s")
+        logging.info(f"Last {len(step_time_arr) // 2} step time: avg={train_step_time} s, std={np.std(step_time_arr[len(step_time_arr) // 2 :])} s")
 
         return flops_per_gpu / (1e12 * train_step_time)
 
