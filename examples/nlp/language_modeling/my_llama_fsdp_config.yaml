@@ -180,10 +180,10 @@ model:
   fp8_params: true
 
   nsys_profile:
-    enabled: false
-    start_step: 40  # Global batch to start profiling
-    end_step: 43 # Global batch to end profiling
-    ranks: [ 0 ] # Global rank IDs to profile
+    enabled: true
+    start_step: 5  # Global batch to start profiling
+    end_step: 10 # Global batch to end profiling
+    ranks: [ 0,1,2,3,4,5,6,7] # Global rank IDs to profile
     gen_shape: False # Generate model and kernel details including input shapes
 
   memory_profile:
@@ -194,7 +194,7 @@ model:
     #output_path: "/gcs/nemo-experiments/"
 
   pytorch_profile:
-    enabled: True
+    enabled: false
     start_step: 9  # Global batch to start profiling
     end_step: 10 # Global batch to end profiling
     rank: 0 # Global rank ID to profile
