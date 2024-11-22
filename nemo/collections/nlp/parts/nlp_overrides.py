@@ -1082,7 +1082,7 @@ class NLPSaveRestoreConnector(SaveRestoreConnector):
                 and app_state.tensor_model_parallel_rank == 0
                 and app_state.data_parallel_rank == 0
             ):
-                with tempfile.TemporaryDirectory() as tmpdir:
+                with tempfile.TemporaryDirectory(dir="/workspace/nfs") as tmpdir:
 
                     if dist_ckpt:
                         shutil.move(str(dist_ckpt_dir), tmpdir)

@@ -20,7 +20,7 @@ from typing import Optional, Union
 from lightning_fabric.utilities.exceptions import MisconfigurationException
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelSummary
+from pytorch_lightning.callbacks import ModelSummary, OnExceptionCheckpoint
 from pytorch_lightning.plugins.environments import TorchElasticEnvironment
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.profilers.pytorch import PyTorchProfiler
@@ -182,6 +182,12 @@ class MegatronTrainerBuilder:
 
         if self.cfg.get('exp_manager', {}).get('log_tflops_per_sec_per_gpu', True):
             callbacks.append(FLOPsMeasurementCallback(self.cfg))
+        if self.cfg.get('run', {}).get('enable_autochecking', False):
+            callbacks.append(OnExceptionCheckpoint(dirpath='/workspace/experiments/test', filename='on_exception_ckpt'))
+
+        if self.cfg.get('run',{}).get('enable_fault_tolerance', False):
+            import nvidia_resiliency_ext.ptl_resiliency as resiliency
+            callbacks.append(resiliency.fault_tolerance_callback.FaultToleranceCallback(autoresume=True, calculate_timeouts=True))
 
         return callbacks
 

@@ -205,6 +205,9 @@ class ModelPT(LightningModule, Model):
         # Setup nsys profiling if it has been enabled in the model config
         self._setup_profiling()
 
+        # Setup resiliency if it has been enabled in trainer config
+        self._setup_resiliency()
+
         # A flag for the profile generation
         self._nsys_profile_started = False
         self._nsys_profile_complete = False
@@ -1725,6 +1728,9 @@ class ModelPT(LightningModule, Model):
             cls._save_restore_connector = save_restore_connector
         else:
             setattr(cls, '_save_restore_connector', save_restore_connector)
+
+    def _setup_resiliency(self):
+        pass
 
     def _setup_profiling(self):
         """Enables nsys profiling

@@ -18,6 +18,7 @@ from pathlib import Path
 # To suppress BF16 compile related issue in the CI runs with turing/V100
 import torch._dynamo
 import torch.multiprocessing as mp
+import torch.distributed as dist
 from omegaconf.omegaconf import OmegaConf, open_dict
 
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
@@ -66,6 +67,17 @@ def main(cfg) -> None:
     trainer.fit(model)
     logging.info(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
+#class CustomInterrupt(Exception):
+#    pass
+#def handle_sigterm(signum, frame):
+#    print(f"rank{dist.get_rank()}:Received SIGTERM. Termination requested.")
+#    if dist.is_available() and dist.is_initialized():
+#        dist.destroy_process_group()
+#    print(f"rank{torch.distributed.get_rank()}:pc destroyed")
+#    raise CustomInterrupt("Received SIGTERM. Termination requested.")
+
+import signal
 
 if __name__ == '__main__':
+    #signal.signal(signal.SIGTERM, handle_sigterm)
     main()
