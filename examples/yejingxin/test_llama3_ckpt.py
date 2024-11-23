@@ -46,6 +46,15 @@ class Llama3Config36M(Llama3Config):
     ffn_hidden_size: int = 2688
     num_attention_heads: int = 16
 
+@dataclass
+class Llama3Config8B(Llama3Config):
+    rotary_base: int = 500_000
+    seq_length: int = 8192
+    num_layers: int = 32
+    hidden_size: int = 4096
+    ffn_hidden_size: int = 14336
+    num_attention_heads: int = 32
+
 class TCPStoreSignalHandler:
    def __init__(self, store): 
        self.rank = dist.get_rank()
@@ -237,6 +246,13 @@ def get_parser():
         required=False,
         default="./nemo_llama3_fault_tol",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        help="Output dir.",
+        required=False,
+        default="36M",
+    )
     return parser
 
 
@@ -252,8 +268,13 @@ def main():
         micro_batch_size=mbs,
         tokenizer=SentencePieceTokenizer(model_path=args.tokenizer_path),
     )
+    model_config = {
+        "36M": Llama3Config36M(),
+        "8B": Llama3Config8B(),
+    }
+    assert args.model in model_config
 
-    model = LlamaModel(config=Llama3Config36M())
+    model = LlamaModel(config=model_config[args.model])
 
     checkpoint_callback = ModelCheckpoint(
         #save_last=True,
@@ -265,7 +286,7 @@ def main():
         filename='{step}-{epoch}',
     )
     #signal_handler = TCPStoreSignalHandler(world_size=8, rank=dist.get_rank())
-    autockpt_callback = AutoCheckpointCallback('./autockpt')
+    autockpt_callback = AutoCheckpointCallback(args.log_dir)
     trainer = get_trainer(args, callbacks=[checkpoint_callback, autockpt_callback])
 
     nemo_logger = nl.NeMoLogger(
